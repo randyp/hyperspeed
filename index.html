@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaceship Hyperspeed</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #hyperspeed-button {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ff4444, #cc0000);
+            border: 8px solid #660000;
+            box-shadow: 0 8px 20px rgba(255, 0, 0, 0.5);
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+            transition: transform 0.1s;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        #hyperspeed-button:active {
+            transform: translateX(-50%) scale(0.95);
+            box-shadow: 0 4px 10px rgba(255, 0, 0, 0.5);
+        }
+
+        #hyperspeed-button.active {
+            background: radial-gradient(circle at 30% 30%, #ffaa44, #ff6600);
+            border-color: #cc4400;
+            box-shadow: 0 8px 30px rgba(255, 100, 0, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <button id="hyperspeed-button">Hyperspeed</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const button = document.getElementById('hyperspeed-button');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let isHyperspeed = false;
+        const stars = [];
+        const numStars = 500;
+
+        class Star {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = (Math.random() - 0.5) * canvas.width * 2;
+                this.y = (Math.random() - 0.5) * canvas.height * 2;
+                this.z = Math.random() * canvas.width;
+                this.prevX = this.x;
+                this.prevY = this.y;
+                this.prevZ = this.z;
+            }
+
+            update() {
+                this.prevX = this.x;
+                this.prevY = this.y;
+                this.prevZ = this.z;
+
+                const speed = isHyperspeed ? 50 : 5;
+                this.z -= speed;
+
+                if (this.z <= 0) {
+                    this.reset();
+                    this.z = canvas.width;
+                }
+            }
+
+            draw() {
+                const sx = (this.x / this.z) * canvas.width + canvas.width / 2;
+                const sy = (this.y / this.z) * canvas.height + canvas.height / 2;
+
+                if (sx < 0 || sx > canvas.width || sy < 0 || sy > canvas.height) {
+                    return;
+                }
+
+                if (isHyperspeed) {
+                    const prevSx = (this.prevX / this.prevZ) * canvas.width + canvas.width / 2;
+                    const prevSy = (this.prevY / this.prevZ) * canvas.height + canvas.height / 2;
+
+                    const size = (1 - this.z / canvas.width) * 2;
+                    ctx.lineWidth = Math.max(size, 1);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.beginPath();
+                    ctx.moveTo(prevSx, prevSy);
+                    ctx.lineTo(sx, sy);
+                    ctx.stroke();
+                } else {
+                    const size = (1 - this.z / canvas.width) * 3;
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, Math.max(size, 1), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        for (let i = 0; i < numStars; i++) {
+            stars.push(new Star());
+        }
+
+        function toggleHyperspeed() {
+            isHyperspeed = !isHyperspeed;
+            button.classList.toggle('active');
+        }
+
+        button.addEventListener('click', toggleHyperspeed);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                toggleHyperspeed();
+            }
+        });
+
+        function animate() {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        animate();
+    </script>
+</body>
+</html>
