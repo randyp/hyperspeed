@@ -70,12 +70,19 @@
         let hyperspeedProgress = 0.0;
         let nebulaOpacity = 1.0;
         const stars = [];
-        const numStars = 1000;
+        const numStars = 16000;
         const noise2D = createNoise2D();
         const HYPERSPEED_RAMP_UP_TIME = 5.0; // seconds
         const HYPERSPEED_RAMP_DOWN_TIME = 2.0; // seconds
         const NORMAL_SPEED = 5;
         const MAX_HYPERSPEED = 50;
+
+        // Flight controls - rotate the star field instead of the ship
+        let pitchVelocity = 0;
+        let rollVelocity = 0;
+        const ROTATION_SPEED = 0.002;
+        const DAMPING = 0.95;
+        const keys = {};
 
         class Nebula {
             constructor() {
@@ -96,20 +103,43 @@
             }
 
             update() {
-                const currentSpeed = NORMAL_SPEED + (MAX_HYPERSPEED - NORMAL_SPEED) * hyperspeedProgress;
-                this.z -= currentSpeed;
-                if (this.z <= 0) {
-                    this.z = 2000;
+                const speed = NORMAL_SPEED + (MAX_HYPERSPEED - NORMAL_SPEED) * hyperspeedProgress;
+
+                // Stars move toward us (we move forward)
+                this.z -= speed;
+
+                // Apply rotation from controls
+                const rotated = rotateStarByControls(this.x, this.y, this.z);
+                this.x = rotated.x;
+                this.y = rotated.y;
+                this.z = rotated.z;
+
+                const distance = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+                if (distance < 10 || distance > 3000) {
+                    // Respawn in sphere
+                    const radius = 2000;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    this.x = radius * Math.sin(phi) * Math.cos(theta);
+                    this.y = radius * Math.sin(phi) * Math.sin(theta);
+                    this.z = radius * Math.cos(phi);
                     this.initialZ = this.z;
-                    this.x = Math.random() * canvas.width;
-                    this.y = Math.random() * canvas.height;
                 }
             }
 
             draw() {
-                const screenX = ((this.x - canvas.width / 2) / this.z) * canvas.width + canvas.width / 2;
-                const screenY = ((this.y - canvas.height / 2) / this.z) * canvas.height + canvas.height / 2;
-                const apparentScale = this.scale / this.z * 1000;
+                // Nebulae are already rotated in update(), just use camera view
+                const rotated = {
+                    x: this.x - canvas.width / 2,
+                    y: this.y - canvas.height / 2,
+                    z: this.z
+                };
+
+                if (rotated.z <= 0) return;
+
+                const screenX = (rotated.x / rotated.z) * canvas.width + canvas.width / 2;
+                const screenY = (rotated.y / rotated.z) * canvas.height + canvas.height / 2;
+                const apparentScale = this.scale / rotated.z * 1000;
 
                 if (screenX + apparentScale < 0 || screenX - apparentScale > canvas.width ||
                     screenY + apparentScale < 0 || screenY - apparentScale > canvas.height) {
@@ -173,9 +203,15 @@
             }
 
             reset() {
-                this.x = (Math.random() - 0.5) * canvas.width * 2;
-                this.y = (Math.random() - 0.5) * canvas.height * 2;
-                this.z = Math.random() * canvas.width;
+                // Generate stars in a sphere around the player
+                const radius = canvas.width * 2;
+                const theta = Math.random() * Math.PI * 2; // horizontal angle
+                const phi = Math.acos(2 * Math.random() - 1); // vertical angle for uniform distribution
+
+                this.x = radius * Math.sin(phi) * Math.cos(theta);
+                this.y = radius * Math.sin(phi) * Math.sin(theta);
+                this.z = radius * Math.cos(phi);
+
                 this.prevX = this.x;
                 this.prevY = this.y;
                 this.prevZ = this.z;
@@ -201,27 +237,46 @@
                 this.prevZ = this.z;
 
                 const speed = NORMAL_SPEED + (MAX_HYPERSPEED - NORMAL_SPEED) * hyperspeedProgress;
+
+                // Stars move toward us (we move forward)
                 this.z -= speed;
 
-                if (this.z <= 0) {
+                // Apply rotation from controls
+                const rotated = rotateStarByControls(this.x, this.y, this.z);
+                this.x = rotated.x;
+                this.y = rotated.y;
+                this.z = rotated.z;
+
+                // Reset if star gets too close or too far
+                const distance = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+                if (distance < 10 || distance > canvas.width * 3) {
                     this.reset();
-                    this.z = canvas.width;
                 }
             }
 
             draw() {
-                const sx = (this.x / this.z) * canvas.width + canvas.width / 2;
-                const sy = (this.y / this.z) * canvas.height + canvas.height / 2;
+                // Stars are already rotated in update(), just use camera view
+                const rotated = { x: this.x, y: this.y, z: this.z };
+
+                if (rotated.z <= 0) return;
+
+                const sx = (rotated.x / rotated.z) * canvas.width + canvas.width / 2;
+                const sy = (rotated.y / rotated.z) * canvas.height + canvas.height / 2;
 
                 if (sx < 0 || sx > canvas.width || sy < 0 || sy > canvas.height) {
                     return;
                 }
 
                 if (hyperspeedProgress > 0.1) {
-                    const prevSx = (this.prevX / this.prevZ) * canvas.width + canvas.width / 2;
-                    const prevSy = (this.prevY / this.prevZ) * canvas.height + canvas.height / 2;
+                    // Previous position is already rotated, just use it
+                    const prevRotated = { x: this.prevX, y: this.prevY, z: this.prevZ };
 
-                    const baseSize = (1 - this.z / canvas.width) * 2 * hyperspeedProgress;
+                    if (prevRotated.z <= 0) return;
+
+                    const prevSx = (prevRotated.x / prevRotated.z) * canvas.width + canvas.width / 2;
+                    const prevSy = (prevRotated.y / prevRotated.z) * canvas.height + canvas.height / 2;
+
+                    const baseSize = (1 - rotated.z / canvas.width) * 2 * hyperspeedProgress;
                     const widthMultiplier = 1 + (hyperspeedProgress * 4);
                     ctx.lineWidth = Math.max(baseSize * widthMultiplier, 1);
                     ctx.strokeStyle = this.color.replace('rgb', 'rgba').replace(')', ', 0.8)');
@@ -230,7 +285,7 @@
                     ctx.lineTo(sx, sy);
                     ctx.stroke();
                 } else {
-                    const size = (1 - this.z / canvas.width) * 3;
+                    const size = (1 - rotated.z / canvas.width) * 3;
                     ctx.fillStyle = this.color;
                     ctx.beginPath();
                     ctx.arc(sx, sy, Math.max(size, 1), 0, Math.PI * 2);
@@ -281,11 +336,45 @@
                 e.preventDefault();
                 toggleHyperspeed();
             }
+            keys[e.code] = true;
         });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        function updateFlightControls() {
+            // Arrow keys / WASD
+            if (keys['ArrowUp'] || keys['KeyW']) pitchVelocity += ROTATION_SPEED;
+            if (keys['ArrowDown'] || keys['KeyS']) pitchVelocity -= ROTATION_SPEED;
+            if (keys['ArrowLeft'] || keys['KeyA']) rollVelocity -= ROTATION_SPEED;
+            if (keys['ArrowRight'] || keys['KeyD']) rollVelocity += ROTATION_SPEED;
+
+            // Apply damping
+            pitchVelocity *= DAMPING;
+            rollVelocity *= DAMPING;
+        }
+
+        function rotateStarByControls(x, y, z) {
+            // Apply pitch (rotate around X axis)
+            let cosPitch = Math.cos(pitchVelocity);
+            let sinPitch = Math.sin(pitchVelocity);
+            let yPitch = y * cosPitch - z * sinPitch;
+            let zPitch = y * sinPitch + z * cosPitch;
+
+            // Apply roll (rotate around Z axis)
+            let cosRoll = Math.cos(rollVelocity);
+            let sinRoll = Math.sin(rollVelocity);
+            let xRoll = x * cosRoll - yPitch * sinRoll;
+            let yRoll = x * sinRoll + yPitch * cosRoll;
+
+            return { x: xRoll, y: yRoll, z: zPitch };
+        }
 
         function animate() {
             updateHyperspeed();
             updateNebulaOpacity();
+            updateFlightControls();
 
             // Calculate screen shake based on acceleration (most shake during ramp-up)
             const shakeIntensity = isHyperspeed ? (1 - hyperspeedProgress) * 16 : 0;
@@ -309,6 +398,12 @@
                 star.update();
                 star.draw();
             });
+
+            // Debug info
+            ctx.fillStyle = 'white';
+            ctx.font = '14px monospace';
+            ctx.fillText(`Pitch velocity: ${pitchVelocity.toFixed(4)}`, 10, 20);
+            ctx.fillText(`Roll velocity: ${rollVelocity.toFixed(4)}`, 10, 40);
 
             ctx.restore();
 
