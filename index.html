@@ -56,7 +56,9 @@
     <canvas id="canvas"></canvas>
     <button id="hyperspeed-button">Hyperspeed</button>
 
-    <script>
+    <script type="module">
+        import { createNoise2D } from 'https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js';
+
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const button = document.getElementById('hyperspeed-button');
@@ -65,8 +67,104 @@
         canvas.height = window.innerHeight;
 
         let isHyperspeed = false;
+        let hyperspeedProgress = 0.0;
+        let nebulaOpacity = 1.0;
         const stars = [];
-        const numStars = 500;
+        const numStars = 1000;
+        const noise2D = createNoise2D();
+        const HYPERSPEED_RAMP_TIME = 2.0; // seconds
+        const NORMAL_SPEED = 5;
+        const MAX_HYPERSPEED = 50;
+
+        class Nebula {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.z = Math.random() * 500 + 1000;
+                this.initialZ = this.z;
+                this.scale = Math.random() * 300 + 200;
+                this.speed = 0.5;
+                this.colors = [
+                    ['rgba(138, 43, 226, ', 'rgba(75, 0, 130, '],  // purple/indigo
+                    ['rgba(65, 105, 225, ', 'rgba(25, 25, 112, '], // blue
+                    ['rgba(219, 112, 147, ', 'rgba(199, 21, 133, '] // pink
+                ];
+                this.colorPair = this.colors[Math.floor(Math.random() * this.colors.length)];
+                this.noiseOffsetX = Math.random() * 1000;
+                this.noiseOffsetY = Math.random() * 1000;
+            }
+
+            update() {
+                const currentSpeed = NORMAL_SPEED + (MAX_HYPERSPEED - NORMAL_SPEED) * hyperspeedProgress;
+                this.z -= currentSpeed;
+                if (this.z <= 0) {
+                    this.z = 2000;
+                    this.initialZ = this.z;
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                }
+            }
+
+            draw() {
+                const screenX = ((this.x - canvas.width / 2) / this.z) * canvas.width + canvas.width / 2;
+                const screenY = ((this.y - canvas.height / 2) / this.z) * canvas.height + canvas.height / 2;
+                const apparentScale = this.scale / this.z * 1000;
+
+                if (screenX + apparentScale < 0 || screenX - apparentScale > canvas.width ||
+                    screenY + apparentScale < 0 || screenY - apparentScale > canvas.height) {
+                    return;
+                }
+
+                const resolution = 32;
+                const imageData = ctx.createImageData(resolution, resolution);
+
+                for (let py = 0; py < resolution; py++) {
+                    for (let px = 0; px < resolution; px++) {
+                        const nx = (px / resolution - 0.5) * 2;
+                        const ny = (py / resolution - 0.5) * 2;
+                        const dist = Math.sqrt(nx * nx + ny * ny);
+
+                        if (dist > 1) continue;
+
+                        const distanceTraveled = (this.initialZ - this.z) * 0.001;
+                        const noiseValue = noise2D(
+                            (px + this.noiseOffsetX) * 0.1 + distanceTraveled,
+                            (py + this.noiseOffsetY) * 0.1 + distanceTraveled
+                        );
+
+                        const alpha = Math.max(0, (1 - dist) * (noiseValue + 1) / 2 * 0.6 * nebulaOpacity);
+
+                        const idx = (py * resolution + px) * 4;
+                        const color = alpha > 0.15 ? this.colorPair[0] : this.colorPair[1];
+                        const rgb = color.match(/\d+/g);
+
+                        imageData.data[idx] = parseInt(rgb[0]);
+                        imageData.data[idx + 1] = parseInt(rgb[1]);
+                        imageData.data[idx + 2] = parseInt(rgb[2]);
+                        imageData.data[idx + 3] = alpha * 255;
+                    }
+                }
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = resolution;
+                tempCanvas.height = resolution;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(imageData, 0, 0);
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                ctx.drawImage(
+                    tempCanvas,
+                    screenX - apparentScale,
+                    screenY - apparentScale,
+                    apparentScale * 2,
+                    apparentScale * 2
+                );
+                ctx.restore();
+            }
+        }
+
+        const nebulae = [new Nebula(), new Nebula(), new Nebula()];
 
         class Star {
             constructor() {
@@ -80,6 +178,20 @@
                 this.prevX = this.x;
                 this.prevY = this.y;
                 this.prevZ = this.z;
+
+                // Realistic star colors based on temperature
+                const starColors = [
+                    'rgb(155, 176, 255)', // blue (hot)
+                    'rgb(170, 191, 255)', // blue-white
+                    'rgb(202, 215, 255)', // white
+                    'rgb(255, 244, 234)', // yellow-white
+                    'rgb(255, 210, 161)', // yellow
+                    'rgb(255, 204, 111)', // orange
+                    'rgb(255, 255, 255)', // white (most common)
+                    'rgb(255, 255, 255)',
+                    'rgb(255, 255, 255)'
+                ];
+                this.color = starColors[Math.floor(Math.random() * starColors.length)];
             }
 
             update() {
@@ -87,7 +199,7 @@
                 this.prevY = this.y;
                 this.prevZ = this.z;
 
-                const speed = isHyperspeed ? 50 : 5;
+                const speed = NORMAL_SPEED + (MAX_HYPERSPEED - NORMAL_SPEED) * hyperspeedProgress;
                 this.z -= speed;
 
                 if (this.z <= 0) {
@@ -104,20 +216,21 @@
                     return;
                 }
 
-                if (isHyperspeed) {
+                if (hyperspeedProgress > 0.1) {
                     const prevSx = (this.prevX / this.prevZ) * canvas.width + canvas.width / 2;
                     const prevSy = (this.prevY / this.prevZ) * canvas.height + canvas.height / 2;
 
-                    const size = (1 - this.z / canvas.width) * 2;
-                    ctx.lineWidth = Math.max(size, 1);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    const baseSize = (1 - this.z / canvas.width) * 2 * hyperspeedProgress;
+                    const widthMultiplier = 1 + (hyperspeedProgress * 4);
+                    ctx.lineWidth = Math.max(baseSize * widthMultiplier, 1);
+                    ctx.strokeStyle = this.color.replace('rgb', 'rgba').replace(')', ', 0.8)');
                     ctx.beginPath();
                     ctx.moveTo(prevSx, prevSy);
                     ctx.lineTo(sx, sy);
                     ctx.stroke();
                 } else {
                     const size = (1 - this.z / canvas.width) * 3;
-                    ctx.fillStyle = 'white';
+                    ctx.fillStyle = this.color;
                     ctx.beginPath();
                     ctx.arc(sx, sy, Math.max(size, 1), 0, Math.PI * 2);
                     ctx.fill();
@@ -134,6 +247,31 @@
             button.classList.toggle('active');
         }
 
+        function updateHyperspeed() {
+            const targetProgress = isHyperspeed ? 1.0 : 0.0;
+            const rampSpeed = 1.0 / (HYPERSPEED_RAMP_TIME * 60); // 60fps
+
+            if (Math.abs(hyperspeedProgress - targetProgress) > 0.01) {
+                if (hyperspeedProgress < targetProgress) {
+                    hyperspeedProgress = Math.min(1.0, hyperspeedProgress + rampSpeed);
+                } else {
+                    hyperspeedProgress = Math.max(0.0, hyperspeedProgress - rampSpeed);
+                }
+            } else {
+                hyperspeedProgress = targetProgress;
+            }
+        }
+
+        function updateNebulaOpacity() {
+            const targetOpacity = 1.0;
+            const fadeSpeed = 0.05;
+            if (Math.abs(nebulaOpacity - targetOpacity) > 0.01) {
+                nebulaOpacity += (targetOpacity - nebulaOpacity) * fadeSpeed;
+            } else {
+                nebulaOpacity = targetOpacity;
+            }
+        }
+
         button.addEventListener('click', toggleHyperspeed);
 
         window.addEventListener('keydown', (e) => {
@@ -146,6 +284,16 @@
         function animate() {
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            updateHyperspeed();
+            updateNebulaOpacity();
+
+            if (nebulaOpacity > 0.01) {
+                nebulae.forEach(nebula => {
+                    nebula.update();
+                    nebula.draw();
+                });
+            }
 
             stars.forEach(star => {
                 star.update();
