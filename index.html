@@ -72,7 +72,8 @@
         const stars = [];
         const numStars = 1000;
         const noise2D = createNoise2D();
-        const HYPERSPEED_RAMP_TIME = 2.0; // seconds
+        const HYPERSPEED_RAMP_UP_TIME = 5.0; // seconds
+        const HYPERSPEED_RAMP_DOWN_TIME = 2.0; // seconds
         const NORMAL_SPEED = 5;
         const MAX_HYPERSPEED = 50;
 
@@ -249,13 +250,14 @@
 
         function updateHyperspeed() {
             const targetProgress = isHyperspeed ? 1.0 : 0.0;
-            const rampSpeed = 1.0 / (HYPERSPEED_RAMP_TIME * 60); // 60fps
 
             if (Math.abs(hyperspeedProgress - targetProgress) > 0.01) {
                 if (hyperspeedProgress < targetProgress) {
-                    hyperspeedProgress = Math.min(1.0, hyperspeedProgress + rampSpeed);
+                    const rampUpSpeed = 1.0 / (HYPERSPEED_RAMP_UP_TIME * 60); // 60fps
+                    hyperspeedProgress = Math.min(1.0, hyperspeedProgress + rampUpSpeed);
                 } else {
-                    hyperspeedProgress = Math.max(0.0, hyperspeedProgress - rampSpeed);
+                    const rampDownSpeed = 1.0 / (HYPERSPEED_RAMP_DOWN_TIME * 60); // 60fps
+                    hyperspeedProgress = Math.max(0.0, hyperspeedProgress - rampDownSpeed);
                 }
             } else {
                 hyperspeedProgress = targetProgress;
@@ -282,11 +284,19 @@
         });
 
         function animate() {
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             updateHyperspeed();
             updateNebulaOpacity();
+
+            // Calculate screen shake based on acceleration (most shake during ramp-up)
+            const shakeIntensity = isHyperspeed ? (1 - hyperspeedProgress) * 16 : 0;
+            const shakeX = (Math.random() - 0.5) * shakeIntensity;
+            const shakeY = (Math.random() - 0.5) * shakeIntensity;
+
+            ctx.save();
+            ctx.translate(shakeX, shakeY);
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-20, -20, canvas.width + 40, canvas.height + 40);
 
             if (nebulaOpacity > 0.01) {
                 nebulae.forEach(nebula => {
@@ -299,6 +309,8 @@
                 star.update();
                 star.draw();
             });
+
+            ctx.restore();
 
             requestAnimationFrame(animate);
         }
