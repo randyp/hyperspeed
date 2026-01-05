@@ -347,8 +347,8 @@
             // Arrow keys / WASD
             if (keys['ArrowUp'] || keys['KeyW']) pitchVelocity += ROTATION_SPEED;
             if (keys['ArrowDown'] || keys['KeyS']) pitchVelocity -= ROTATION_SPEED;
-            if (keys['ArrowLeft'] || keys['KeyA']) rollVelocity -= ROTATION_SPEED;
-            if (keys['ArrowRight'] || keys['KeyD']) rollVelocity += ROTATION_SPEED;
+            if (keys['ArrowLeft'] || keys['KeyA']) rollVelocity += ROTATION_SPEED;
+            if (keys['ArrowRight'] || keys['KeyD']) rollVelocity -= ROTATION_SPEED;
 
             // Apply damping
             pitchVelocity *= DAMPING;
