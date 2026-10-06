@@ -1,0 +1,28 @@
+{
+  "name": "hyperspeed-electron",
+  "version": "1.0.0",
+  "description": "Hyperspeed starfield simulation in Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "starfield",
+    "space"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0"
+  },
+  "dependencies": {
+    "dgram": "^1.0.1",
+    "g711": "^1.0.1",
+    "joystick": "^0.1.2",
+    "pcm-convert": "^1.6.5",
+    "simplex-noise": "^4.0.1",
+    "sip": "^0.0.6",
+    "wav": "^1.0.2"
+  }
+}

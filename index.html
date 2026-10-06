@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaceship Hyperspeed</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #hyperspeed-button {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ff4444, #cc0000);
+            border: 8px solid #660000;
+            box-shadow: 0 8px 20px rgba(255, 0, 0, 0.5);
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+            transition: transform 0.1s;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        #hyperspeed-button:active {
+            transform: translateX(-50%) scale(0.95);
+            box-shadow: 0 4px 10px rgba(255, 0, 0, 0.5);
+        }
+
+        #hyperspeed-button.active {
+            background: radial-gradient(circle at 30% 30%, #ffaa44, #ff6600);
+            border-color: #cc4400;
+            box-shadow: 0 8px 30px rgba(255, 100, 0, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <button id="hyperspeed-button">Hyperspeed</button>
+    <script src="renderer.js"></script>
+</body>
+</html>
